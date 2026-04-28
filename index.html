@@ -29,24 +29,32 @@
         h1 { color: #ff4d6d; font-size: 2rem; margin-bottom: 15px; }
         p { color: #333; font-size: 1.1rem; line-height: 1.5; max-width: 500px; }
         .coords { font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 10px; color: #ff4d6d; font-size: 1.4rem; font-weight: bold; margin: 10px 0; }
+        
+        #tap-to-start {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 24px; color: #ff4d6d; font-weight: bold; z-index: 50;
+            background: rgba(255,255,255,0.8); padding: 20px; border-radius: 20px;
+            pointer-events: none; display: none; text-align: center;
+        }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <div id="ui">🎁 Собрано: <span id="giftsCount">0</span>/3 | Счёт: <span id="scoreVal">0</span></div>
+    <div id="tap-to-start">Нажми на экран,<br>чтобы прыгнуть и начать! 🚀</div>
     <canvas id="gameCanvas"></canvas>
     
     <div id="menu" class="overlay">
         <h1>Твой личный мини-квест ❤️</h1>
-        <p>Прыгай через препятствия и собирай сюрпризы.<br>Будь внимательна!</p>
-        <button class="btn" onclick="startGame()">Я готова!</button>
+        <p>Собери 3 подарка, чтобы открыть главный секрет.<br>Прыгай аккуратно!</p>
+        <button class="btn" onclick="showTapToStart()">Я готова!</button>
     </div>
 
     <div id="pre-quiz" class="overlay" style="display:none;">
-        <h1>Упс! Ты споткнулась... 💔</h1>
-        <p>Последний шанс! Ответь на мой вопрос, чтобы продолжить путь к сюрпризу.</p>
-        <button class="btn" onclick="openActualQuiz()">Ответить на вопрос</button>
+        <h1>Упс! 💔</h1>
+        <p>Ответь на вопрос, чтобы продолжить путь!</p>
+        <button class="btn" onclick="openActualQuiz()">Ответить</button>
     </div>
 
     <div id="quiz" class="overlay" style="display:none;">
@@ -57,29 +65,25 @@
 
     <div id="finalScreen" class="overlay" style="display:none;">
         <h1>Ты умничка! 🎉</h1>
-        <p>Ты прошла этот путь идеально. Мои слова слишком велики для этого экрана, поэтому я оставил их для тебя прямо на карте мира.</p>
-        
         <p style="font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left; font-size: 1rem;">
             Я знаю смысл слова "Ради", но<br> 
             в дополнении с тобой...<br>
             Ради тебя. Ради одной.<br>
             И слов не хватит...
         </p>
-
         <div class="coords">44.359825, 38.528602</div> 
-        <p style="font-size: 0.9rem; font-weight: bold;">Скопируй эти координаты и вставь их в поиск в Яндекс Картах.</p>
+        <p style="font-size: 0.9rem; font-weight: bold;">Скопируй координаты и вставь в Яндекс Карты.</p>
     </div>
 </div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let gameActive = false, score = 0, gameSpeed = 5.0, collectedGifts = new Set();
+let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 4.5, collectedGifts = new Set();
 let quizStep = 0, objects = [];
 const images = {};
 
-// Уменьшили размеры игрока
-const player = { x: 50, y: 0, w: 50, h: 50, dy: 0, jumpForce: 13, gravity: 0.7, ground: 0, isGrounded: false };
+const player = { x: 50, y: 0, w: 45, h: 45, dy: 0, jumpForce: 12, gravity: 0.6, ground: 0, isGrounded: false };
 
 const allQuizzes = [
     {
@@ -99,8 +103,8 @@ Object.entries(assets).forEach(([name, src]) => { images[name] = new Image(); im
 
 function resize() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 0.6; // Немного ниже холст
-    player.ground = canvas.height - 70;
+    canvas.height = window.innerHeight * 0.6;
+    player.ground = canvas.height - 60;
     player.y = player.ground;
 }
 window.addEventListener('resize', resize);
@@ -116,25 +120,24 @@ function drawCactus(x, y, w, h) {
 function spawn() {
     if (!gameActive) return;
     const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
-    const isGift = giftPool.length > 0 && Math.random() > 0.85; // Чаще спавним подарки, чтоб игра была короче
+    const isGift = giftPool.length > 0 && Math.random() > 0.7; // Подарки стали чаще
     const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
 
     objects.push({
         x: canvas.width,
-        y: isGift ? player.ground - 80 : player.ground + 10,
-        w: isGift ? 40 : 35, // Уменьшили препятствия
-        h: isGift ? 40 : 50, // Уменьшили кактусы
+        y: isGift ? player.ground - 70 : player.ground + 15,
+        w: isGift ? 40 : 30,
+        h: isGift ? 40 : 45,
         type: isGift ? 'gift' : 'obstacle',
         name: type
     });
     
-    // Больше разрыв между препятствиями
-    let nextSpawn = 1200 + Math.random() * 1500 - (gameSpeed * 50);
-    setTimeout(spawn, Math.max(800, nextSpawn));
+    // Большой интервал между кактусами
+    let nextSpawn = 1800 + Math.random() * 2000;
+    setTimeout(spawn, nextSpawn);
 }
 
 function update() {
-    if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.beginPath();
@@ -142,56 +145,53 @@ function update() {
     ctx.lineTo(canvas.width, player.ground + player.h - 5);
     ctx.strokeStyle = "#535353"; ctx.lineWidth = 2; ctx.stroke();
 
-    player.dy += player.gravity; player.y += player.dy;
-    if (player.y > player.ground) { player.y = player.ground; player.dy = 0; player.isGrounded = true; }
+    if (gameActive || waitingForStart) {
+        player.dy += player.gravity; player.y += player.dy;
+        if (player.y > player.ground) { player.y = player.ground; player.dy = 0; player.isGrounded = true; }
 
-    if (images['her'].complete && images['her'].naturalWidth > 0) {
-        ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
-    } else {
-        ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h);
+        if (images['her'].complete) {
+            ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
+        } else {
+            ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h);
+        }
     }
 
-    objects.forEach((obj, i) => {
-        obj.x -= gameSpeed;
-        if (obj.type === 'obstacle') {
-            drawCactus(obj.x, obj.y, obj.w, obj.h);
-        } else {
-            if (images[obj.name] && images[obj.name].complete) {
-                ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
-            } else {
-                ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
-            }
-        }
-
-        // Хитбокс стал мягче (уменьшили зону столкновения)
-        if (player.x < obj.x + obj.w - 10 && player.x + player.w > obj.x + 10 &&
-            player.y < obj.y + obj.h - 10 && player.y + player.h > obj.y + 10) {
+    if (gameActive) {
+        objects.forEach((obj, i) => {
+            obj.x -= gameSpeed;
             if (obj.type === 'obstacle') {
-                handleHit();
+                drawCactus(obj.x, obj.y, obj.w, obj.h);
             } else {
-                collectedGifts.add(obj.name);
-                document.getElementById('giftsCount').innerText = collectedGifts.size;
-                objects.splice(i, 1);
-                if (collectedGifts.size === 3) win();
+                if (images[obj.name]?.complete) {
+                    ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
+                } else {
+                    ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                }
             }
-        }
-    });
 
-    objects = objects.filter(o => o.x > -100);
-    score++; 
-    gameSpeed += 0.001; // Очень медленное ускорение
-    document.getElementById('scoreVal').innerText = Math.floor(score/10);
+            // Сверх-лояльный хитбокс
+            if (player.x < obj.x + obj.w - 15 && player.x + player.w > obj.x + 15 &&
+                player.y < obj.y + obj.h - 15 && player.y + player.h > obj.y + 15) {
+                if (obj.type === 'obstacle') {
+                    handleHit();
+                } else {
+                    collectedGifts.add(obj.name);
+                    document.getElementById('giftsCount').innerText = collectedGifts.size;
+                    objects.splice(i, 1);
+                    if (collectedGifts.size === 3) win();
+                }
+            }
+        });
+        objects = objects.filter(o => o.x > -100);
+        score++; 
+        document.getElementById('scoreVal').innerText = Math.floor(score/10);
+    }
     requestAnimationFrame(update);
 }
 
 function handleHit() {
     gameActive = false;
-    if (quizStep < allQuizzes.length) {
-        document.getElementById('pre-quiz').style.display = 'flex';
-    } else {
-        alert("Попытки закончились, но я все равно тебя люблю! Давай еще раз ❤️");
-        location.reload();
-    }
+    document.getElementById('pre-quiz').style.display = 'flex';
 }
 
 function openActualQuiz() {
@@ -199,10 +199,8 @@ function openActualQuiz() {
     const qS = document.getElementById('quiz');
     const oC = document.getElementById('quiz-options');
     const currentQuiz = allQuizzes[quizStep];
-    
     oC.innerHTML = '';
     document.getElementById('quiz-question').innerText = currentQuiz.question;
-    
     currentQuiz.options.forEach((opt, i) => {
         const b = document.createElement('button'); 
         b.className = 'option-btn'; 
@@ -211,12 +209,9 @@ function openActualQuiz() {
             if (i === currentQuiz.correct) {
                 quizStep++;
                 qS.style.display = 'none'; 
-                gameActive = true;
-                objects = []; 
-                update(); 
-                spawn();
+                showTapToStart();
             } else { 
-                alert("Это неверный ответ... Начнем сначала! ❤️"); 
+                alert("Почти! Давай попробуем заново ❤️"); 
                 location.reload(); 
             }
         };
@@ -225,11 +220,20 @@ function openActualQuiz() {
     qS.style.display = 'flex';
 }
 
-function startGame() { 
-    document.getElementById('menu').style.display = 'none'; 
-    gameActive = true; 
-    spawn(); 
-    update(); 
+function showTapToStart() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('tap-to-start').style.display = 'block';
+    waitingForStart = true;
+    objects = [];
+}
+
+function startGame() {
+    if (!waitingForStart) return;
+    document.getElementById('tap-to-start').style.display = 'none';
+    waitingForStart = false;
+    gameActive = true;
+    jump();
+    spawn();
 }
 
 function win() { 
@@ -238,14 +242,27 @@ function win() {
 }
 
 function jump() { 
-    if (player.isGrounded && gameActive) { 
+    if (player.isGrounded) { 
         player.dy = -player.jumpForce; 
         player.isGrounded = false; 
     } 
 }
 
-window.addEventListener('keydown', e => { if(e.code === 'Space' || e.code === 'ArrowUp') jump(); });
-window.addEventListener('touchstart', (e) => { if(gameActive) { e.preventDefault(); jump(); } }, {passive: false});
+window.addEventListener('touchstart', (e) => { 
+    e.preventDefault();
+    if (waitingForStart) startGame();
+    else if (gameActive) jump();
+}, {passive: false});
+
+// Для теста на компе
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        if (waitingForStart) startGame();
+        else if (gameActive) jump();
+    }
+});
+
+update();
 </script>
 </body>
 </html>
