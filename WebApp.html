@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Твой секретный квест ❤️</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; background: #ffffff; touch-action: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; background: #ffffff; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 20px; color: #333; font-weight: bold; }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; text-align: center; padding: 30px; box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 18px 40px; font-size: 20px; border: none; border-radius: 50px;
+            background: #ff4d6d; color: white; cursor: pointer; margin: 15px;
+            box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3); transition: 0.3s;
+            font-weight: bold;
+        }
+        .btn:active { transform: scale(0.95); }
+
+        #quiz-options { display: flex; flex-wrap: wrap; justify-content: center; max-width: 500px; }
+        .option-btn { background: #444; min-width: 180px; font-size: 18px; color: white; border: none; padding: 15px; margin: 8px; border-radius: 15px; cursor: pointer; font-weight: bold; }
+
+        h1 { color: #ff4d6d; font-size: 2.5rem; margin-bottom: 20px; }
+        p { color: #333; font-size: 1.3rem; line-height: 1.6; max-width: 600px; }
+        .coords { font-family: monospace; background: #f0f0f0; padding: 15px; border-radius: 10px; color: #ff4d6d; font-size: 1.7rem; font-weight: bold; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui">🎁 Собрано: <span id="giftsCount">0</span>/3 | Счёт: <span id="scoreVal">0</span></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="menu" class="overlay">
+        <h1>Твой личный мини-квест ❤️</h1>
+        <p>Прыгай через препятствия и собирай сюрпризы.<br>Будь внимательна — скорость будет расти быстро!</p>
+        <button class="btn" onclick="startGame()">Я готова!</button>
+    </div>
+
+    <div id="pre-quiz" class="overlay" style="display:none;">
+        <h1>Упс! Ты споткнулась... 💔</h1>
+        <p>Последний шанс! Ты можешь ответить на мой вопрос и продолжить путь к сюрпризу.</p>
+        <button class="btn" onclick="openActualQuiz()">Ответить на вопрос</button>
+    </div>
+
+    <div id="quiz" class="overlay" style="display:none;">
+        <h1 id="quiz-title">Вопрос на спасение</h1>
+        <p id="quiz-question" style="font-weight: bold; font-size: 1.5rem;"></p>
+        <div id="quiz-options"></div>
+    </div>
+
+    <div id="finalScreen" class="overlay" style="display:none;">
+        <h1>Ты умничка, я тобой горжусь! 🎉</h1>
+        <p>Ты прошла этот путь идеально. Мои слова слишком велики для этого экрана, поэтому я оставил их для тебя прямо у Эйфелевой башни.</p>
+
+        <p style="font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left;">
+            Я знаю смысл слова "Ради", но<br>
+            в дополнении с тобой...<br>
+            Ради тебя. Ради одной.<br>
+            И слов не хватит...
+        </p>
+
+        <div class="coords">44.359825, 38.528602</div>
+
+        <p style="font-size: 1rem; font-weight: bold;">Скопируй эти координаты и вставь их в поиск в Яндекс Картах.</p>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gameActive = false, score = 0, gameSpeed = 7.5, collectedGifts = new Set();
+let quizStep = 0, objects = [];
+const images = {};
+
+const player = { x: 50, y: 0, w: 65, h: 65, dy: 0, jumpForce: 15, gravity: 0.8, ground: 0, isGrounded: false };
+
+const allQuizzes = [
+    {
+        question: "Где был наш первый поцелуй?",
+        options: ["На качелях", "У тебя дома", "В лифте"],
+        correct: 0
+    },
+    {
+        question: "Какой клип мы пересматривали чаще всего?",
+        options: ["Пошлая Молли", "Дырки в штанах", "Егор Крид"],
+        correct: 1
+    }
+];
+
+const assets = { 'her': 'her.jpg', 'apple': 'apple.jpg', 'beer': 'beer.jpg', 'kinder': 'kinder.jpg' };
+Object.entries(assets).forEach(([name, src]) => { images[name] = new Image(); images[name].src = src; });
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight * 0.7;
+    player.ground = canvas.height - 90;
+    player.y = player.ground;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function drawCactus(x, y, w, h) {
+    ctx.fillStyle = "#535353";
+    ctx.fillRect(x + w*0.3, y, w*0.4, h);
+    ctx.fillRect(x, y + h*0.3, w*0.3, h*0.1);
+    ctx.fillRect(x, y + h*0.1, w*0.1, h*0.3);
+    ctx.fillRect(x + w*0.7, y + h*0.4, w*0.3, h*0.1);
+    ctx.fillRect(x + w*0.9, y + h*0.2, w*0.1, h*0.3);
+}
+
+function spawn() {
+    if (!gameActive) return;
+    const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
+    const isGift = giftPool.length > 0 && Math.random() > 0.88;
+    const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
+
+    objects.push({
+        x: canvas.width,
+        y: isGift ? player.ground - 100 : player.ground,
+        w: isGift ? 55 : 45,
+        h: isGift ? 55 : 75,
+        type: isGift ? 'gift' : 'obstacle',
+        name: type
+    });
+
+    let nextSpawn = 800 + Math.random() * 1000 - (gameSpeed * 45);
+    setTimeout(spawn, Math.max(500, nextSpawn));
+}
+
+function update() {
+    if (!gameActive) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.moveTo(0, player.ground + player.h - 5);
+    ctx.lineTo(canvas.width, player.ground + player.h - 5);
+    ctx.strokeStyle = "#535353"; ctx.lineWidth = 3; ctx.stroke();
+
+    player.dy += player.gravity; player.y += player.dy;
+    if (player.y > player.ground) { player.y = player.ground; player.dy = 0; player.isGrounded = true; }
+
+    if (images['her'].complete && images['her'].naturalWidth > 0) {
+        ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
+    } else {
+        ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h);
+    }
+
+    objects.forEach((obj, i) => {
+        obj.x -= gameSpeed;
+        if (obj.type === 'obstacle') {
+            drawCactus(obj.x, obj.y, obj.w, obj.h);
+        } else {
+            if (images[obj.name] && images[obj.name].complete) {
+                ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
+            } else {
+                ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+            }
+        }
+
+        if (player.x < obj.x + obj.w - 15 && player.x + player.w > obj.x + 15 &&
+            player.y < obj.y + obj.h - 15 && player.y + player.h > obj.y + 10) {
+            if (obj.type === 'obstacle') {
+                handleHit();
+            } else {
+                collectedGifts.add(obj.name);
+                document.getElementById('giftsCount').innerText = collectedGifts.size;
+                objects.splice(i, 1);
+                if (collectedGifts.size === 3) win();
+            }
+        }
+    });
+
+    objects = objects.filter(o => o.x > -100);
+    score++;
+    gameSpeed += 0.0035;
+    document.getElementById('scoreVal').innerText = Math.floor(score/10);
+    requestAnimationFrame(update);
+}
+
+function handleHit() {
+    gameActive = false;
+    if (quizStep < allQuizzes.length) {
+        document.getElementById('pre-quiz').style.display = 'flex';
+    } else {
+        alert("Попытки закончились, но я все равно тебя люблю! Попробуй еще раз ❤️");
+        location.reload();
+    }
+}
+
+function openActualQuiz() {
+    document.getElementById('pre-quiz').style.display = 'none';
+    const qS = document.getElementById('quiz');
+    const oC = document.getElementById('quiz-options');
+    const currentQuiz = allQuizzes[quizStep];
+
+    oC.innerHTML = '';
+    document.getElementById('quiz-question').innerText = currentQuiz.question;
+
+    currentQuiz.options.forEach((opt, i) => {
+        const b = document.createElement('button');
+        b.className = 'option-btn';
+        b.innerText = opt;
+        b.onclick = () => {
+            if (i === currentQuiz.correct) {
+                quizStep++;
+                qS.style.display = 'none';
+                gameActive = true;
+                objects = [];
+                update();
+                spawn();
+            } else {
+                alert("Это неверный ответ... Начнем сначала! ❤️");
+                location.reload();
+            }
+        };
+        oC.appendChild(b);
+    });
+    qS.style.display = 'flex';
+}
+
+function startGame() {
+    document.getElementById('menu').style.display = 'none';
+    gameActive = true;
+    spawn();
+    update();
+}
+
+function win() {
+    gameActive = false;
+    document.getElementById('finalScreen').style.display = 'flex';
+}
+
+function jump() {
+    if (player.isGrounded && gameActive) {
+        player.dy = -player.jumpForce;
+        player.isGrounded = false;
+    }
+}
+
+window.addEventListener('keydown', e => { if(e.code === 'Space' || e.code === 'ArrowUp') jump(); });
+window.addEventListener('touchstart', (e) => { if(gameActive) { e.preventDefault(); jump(); } }, {passive: false});
+</script>
+</body>
+</html>
