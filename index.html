@@ -9,33 +9,13 @@
         #game-container { position: relative; width: 100vw; height: 100vh; background: #ffffff; }
         canvas { display: block; width: 100%; height: 100%; }
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 18px; color: #333; font-weight: bold; }
-
-        .overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.98);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 100; text-align: center; padding: 20px; box-sizing: border-box;
-        }
-
-        .btn {
-            padding: 15px 35px; font-size: 18px; border: none; border-radius: 50px;
-            background: #ff4d6d; color: white; cursor: pointer; margin: 10px;
-            box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3); font-weight: bold;
-        }
-
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.98); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px; box-sizing: border-box; }
+        .btn { padding: 15px 35px; font-size: 18px; border: none; border-radius: 50px; background: #ff4d6d; color: white; cursor: pointer; margin: 10px; box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3); font-weight: bold; }
         .option-btn { background: #444; min-width: 140px; font-size: 16px; color: white; border: none; padding: 12px; margin: 5px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         .coords { font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 10px; color: #ff4d6d; font-size: 1.4rem; font-weight: bold; margin: 15px 0; border: 2px solid #ff4d6d; }
-        
-        /* Стили финального текста */
         .quote-block { font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left; margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; width: 100%; max-width: 320px; }
         .final-text { font-size: 1.1rem; color: #333; font-weight: bold; margin-bottom: 10px; }
-
-        #tap-to-start {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 22px; color: #ff4d6d; font-weight: bold; z-index: 50;
-            background: rgba(255,255,255,0.9); padding: 20px; border-radius: 20px;
-            display: none; text-align: center; border: 2px solid #ff4d6d; pointer-events: none;
-        }
+        #tap-to-start { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px; color: #ff4d6d; font-weight: bold; z-index: 50; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 20px; display: none; text-align: center; border: 2px solid #ff4d6d; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -53,7 +33,7 @@
 
     <div id="pre-quiz" class="overlay" style="display:none;">
         <h1>Упс! Ты задела кактус 🌵</h1>
-        <p>Ответь правильно, чтобы продолжить игру!</p>
+        <p>Нужен правильный ответ!</p>
         <button class="btn" onclick="openActualQuiz()">Ответить</button>
     </div>
 
@@ -63,23 +43,19 @@
     </div>
 
     <div id="finalScreen" class="overlay" style="display:none;">
-        <h1>Ты победила! 🎉</h1>
-        
+        <h1>Победа! 🎉</h1>
         <div class="quote-block">
             Я знаю смысл слова "Ради", но<br>
             в дополнении с тобой...<br>
             Ради тебя. Ради одной.<br>
             И слов не хватит...
         </div>
-
         <div class="final-text">
             Там, где горы встречаются с водой,<br>
             Где Эйфелева башня...
         </div>
-
         <div class="coords">44.359825, 38.528602</div>
-        
-        <p style="font-size: 0.8rem;">Скопируй цифры и вставь в поиск Яндекс Карт.</p>
+        <p style="font-size: 0.8rem;">Скопируй цифры и вставь в Яндекс Карты.</p>
     </div>
 </div>
 
@@ -88,11 +64,11 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 6.5;
 let collectedGifts = new Set(), objects = [], quizStep = 0, lastSpawnTime = 0;
+let lastGiftTime = 0; // Для контроля рандома подарков
 
 const player = { x: 50, y: 0, w: 50, h: 50, dy: 0, jumpForce: 15, gravity: 0.9, ground: 0, isGrounded: false };
-
 const images = {};
-// Используем beer.JPG как на твоем скрине
+// ИСПРАВЛЕНО: beer.jpg маленькими буквами
 const assets = { 'her': 'her.jpg', 'apple': 'apple.jpg', 'beer': 'beer.jpg', 'kinder': 'kinder.jpg' };
 
 Object.entries(assets).forEach(([name, src]) => {
@@ -116,41 +92,44 @@ resize();
 
 function drawCactus(x, y, w, h) {
     ctx.fillStyle = "#535353";
-    ctx.fillRect(x + w*0.35, y, w*0.3, h);
-    ctx.fillRect(x, y + h*0.3, w*0.35, h*0.2);
-    ctx.fillRect(x + w*0.65, y + h*0.4, w*0.35, h*0.2);
+    ctx.fillRect(x + w*0.35, y, w*0.4, h);
+    ctx.fillRect(x, y + h*0.2, w*0.3, h*0.15);
+    ctx.fillRect(x + w*0.7, y + h*0.3, w*0.3, h*0.15);
 }
 
 function update(time = 0) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
     ctx.beginPath(); ctx.moveTo(0, player.ground + player.h); ctx.lineTo(canvas.width, player.ground + player.h);
     ctx.strokeStyle = "#333"; ctx.lineWidth = 3; ctx.stroke();
 
     if (gameActive || waitingForStart) {
         player.dy += player.gravity; player.y += player.dy;
         if (player.y > player.ground) { player.y = player.ground; player.dy = 0; player.isGrounded = true; }
-        
-        if (images['her'].complete && images['her'].naturalWidth !== 0) {
-            ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
-        } else {
-            ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h);
-        }
+        if (images['her'].complete && images['her'].naturalWidth !== 0) ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
+        else { ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h); }
     }
 
     if (gameActive) {
-        // Усложненный спавн
-        let spawnRate = Math.max(600, 1300 - (score / 8));
+        let spawnRate = Math.max(500, 1100 - (score / 10));
         if (time - lastSpawnTime > spawnRate) {
             const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
-            const isGift = giftPool.length > 0 && Math.random() > 0.8; // Подарки теперь реже!
+            
+            // НОВАЯ ЛОГИКА РАНДОМА:
+            // 1. Подарки не спавнятся чаще чем раз в 3 секунды (3000мс)
+            // 2. Если прошло 8 секунд без подарка - шанс 100%
+            let timeSinceLastGift = time - lastGiftTime;
+            let canSpawnGift = giftPool.length > 0 && timeSinceLastGift > 3000;
+            let forceGift = timeSinceLastGift > 8000;
+            
+            const isGift = canSpawnGift && (Math.random() > 0.7 || forceGift);
             const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
             
+            if (isGift) lastGiftTime = time;
+
             objects.push({
                 x: canvas.width,
                 y: isGift ? player.ground - 90 : player.ground + 5,
-                w: isGift ? 50 : 35,
-                h: isGift ? 50 : 60,
+                w: isGift ? 50 : 35, h: isGift ? 50 : 60,
                 type: isGift ? 'gift' : 'obstacle',
                 name: type
             });
@@ -160,56 +139,29 @@ function update(time = 0) {
         for (let i = objects.length - 1; i >= 0; i--) {
             let obj = objects[i];
             obj.x -= gameSpeed;
-
-            if (obj.type === 'obstacle') {
-                drawCactus(obj.x, obj.y, obj.w, obj.h);
-            } else {
-                if (images[obj.name]?.complete && images[obj.name].naturalWidth !== 0) {
-                    ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
-                } else {
-                    ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
-                }
+            if (obj.type === 'obstacle') drawCactus(obj.x, obj.y, obj.w, obj.h);
+            else {
+                if (images[obj.name]?.complete && images[obj.name].naturalWidth !== 0) ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
+                else { ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h); }
             }
-
-            if (player.x < obj.x + obj.w - 12 && player.x + player.w > obj.x + 12 &&
-                player.y < obj.y + obj.h - 12 && player.y + player.h > obj.y + 12) {
-                if (obj.type === 'obstacle') {
-                    gameActive = false;
-                    document.getElementById('pre-quiz').style.display = 'flex';
-                } else {
-                    collectedGifts.add(obj.name);
-                    document.getElementById('giftsCount').innerText = collectedGifts.size;
-                    objects.splice(i, 1);
-                    if (collectedGifts.size === 3) win();
-                }
+            if (player.x < obj.x + obj.w - 12 && player.x + player.w > obj.x + 12 && player.y < obj.y + obj.h - 12 && player.y + player.h > obj.y + 12) {
+                if (obj.type === 'obstacle') { gameActive = false; document.getElementById('pre-quiz').style.display = 'flex'; }
+                else { collectedGifts.add(obj.name); document.getElementById('giftsCount').innerText = collectedGifts.size; objects.splice(i, 1); if (collectedGifts.size === 3) win(); }
             }
             if (obj.x < -100) objects.splice(i, 1);
         }
         score++;
-        gameSpeed += 0.0012; // Быстрое ускорение
+        gameSpeed += 0.0018; 
         document.getElementById('scoreVal').innerText = Math.floor(score/10);
     }
     requestAnimationFrame(update);
 }
 
-function showTapToStart() {
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('tap-to-start').style.display = 'block';
-    waitingForStart = true;
-    objects = [];
-}
-
+function showTapToStart() { document.getElementById('menu').style.display = 'none'; document.getElementById('tap-to-start').style.display = 'block'; waitingForStart = true; objects = []; lastGiftTime = performance.now(); }
 function jump() {
-    if (waitingForStart) {
-        document.getElementById('tap-to-start').style.display = 'none';
-        waitingForStart = false; gameActive = true;
-    }
-    if (player.isGrounded && gameActive) {
-        player.dy = -player.jumpForce;
-        player.isGrounded = false;
-    }
+    if (waitingForStart) { document.getElementById('tap-to-start').style.display = 'none'; waitingForStart = false; gameActive = true; }
+    if (player.isGrounded && gameActive) { player.dy = -player.jumpForce; player.isGrounded = false; }
 }
-
 function openActualQuiz() {
     document.getElementById('pre-quiz').style.display = 'none';
     const qS = document.getElementById('quiz'), oC = document.getElementById('quiz-options');
@@ -218,27 +170,16 @@ function openActualQuiz() {
     oC.innerHTML = '';
     cur.a.forEach((opt, i) => {
         const b = document.createElement('button'); b.className = 'option-btn'; b.innerText = opt;
-        b.onclick = () => {
-            if (i === cur.c) { quizStep++; qS.style.display = 'none'; showTapToStart(); }
-            else { alert("Неправильно! Начнем сначала ❤️"); location.reload(); }
-        };
+        b.onclick = () => { if (i === cur.c) { quizStep++; qS.style.display = 'none'; showTapToStart(); } else { alert("Неа! Попробуй снова ❤️"); location.reload(); }};
         oC.appendChild(b);
     });
     qS.style.display = 'flex';
 }
-
 function win() { gameActive = false; document.getElementById('finalScreen').style.display = 'flex'; }
-
-function handleAction(e) {
-    if (e.target.tagName === 'BUTTON') return;
-    if (e.type === 'touchstart') e.preventDefault();
-    jump();
-}
-
+function handleAction(e) { if (e.target.tagName === 'BUTTON') return; if (e.type === 'touchstart') e.preventDefault(); jump(); }
 window.addEventListener('touchstart', handleAction, {passive: false});
 window.addEventListener('mousedown', handleAction);
 window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
-
 update();
 </script>
 </body>
