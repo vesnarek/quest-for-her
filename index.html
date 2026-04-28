@@ -79,7 +79,7 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 5.5, collectedGifts = new Set();
+let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 5.2, collectedGifts = new Set();
 let quizStep = 0, objects = [];
 const images = {};
 
@@ -120,7 +120,11 @@ function drawCactus(x, y, w, h) {
 function spawn() {
     if (!gameActive) return;
     const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
-    const isGift = giftPool.length > 0 && Math.random() > 0.8;
+    
+    // ИСПРАВЛЕННЫЙ РАНДОМ: если подарков мало, шанс их появления сильно растет
+    const spawnThreshold = giftPool.length > 0 ? 0.65 : 0.95; 
+    const isGift = giftPool.length > 0 && Math.random() > spawnThreshold;
+    
     const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
 
     objects.push({
@@ -132,8 +136,7 @@ function spawn() {
         name: type
     });
     
-    // Сбалансированный спавн
-    let nextSpawn = 1000 + Math.random() * 1200;
+    let nextSpawn = 900 + Math.random() * 1100;
     setTimeout(spawn, nextSpawn);
 }
 
@@ -169,9 +172,8 @@ function update() {
                 }
             }
 
-            // Честный хитбокс
-            if (player.x < obj.x + obj.w - 8 && player.x + player.w > obj.x + 8 &&
-                player.y < obj.y + obj.h - 8 && player.y + player.h > obj.y + 8) {
+            if (player.x < obj.x + obj.w - 10 && player.x + player.w > obj.x + 10 &&
+                player.y < obj.y + obj.h - 10 && player.y + player.h > obj.y + 10) {
                 if (obj.type === 'obstacle') {
                     handleHit();
                 } else {
@@ -184,7 +186,7 @@ function update() {
         });
         objects = objects.filter(o => o.x > -100);
         score++; 
-        gameSpeed += 0.0005; // Едва заметное ускорение для азарта
+        gameSpeed += 0.0006;
         document.getElementById('scoreVal').innerText = Math.floor(score/10);
     }
     requestAnimationFrame(update);
