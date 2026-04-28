@@ -32,9 +32,9 @@
         
         #tap-to-start {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 24px; color: #ff4d6d; font-weight: bold; z-index: 50;
-            background: rgba(255,255,255,0.8); padding: 20px; border-radius: 20px;
-            pointer-events: none; display: none; text-align: center;
+            font-size: 22px; color: #ff4d6d; font-weight: bold; z-index: 50;
+            background: rgba(255,255,255,0.9); padding: 20px; border-radius: 20px;
+            pointer-events: none; display: none; text-align: center; border: 2px solid #ff4d6d;
         }
     </style>
 </head>
@@ -42,18 +42,18 @@
 
 <div id="game-container">
     <div id="ui">🎁 Собрано: <span id="giftsCount">0</span>/3 | Счёт: <span id="scoreVal">0</span></div>
-    <div id="tap-to-start">Нажми на экран,<br>чтобы прыгнуть и начать! 🚀</div>
+    <div id="tap-to-start">Готова?<br>Нажми на экран для прыжка! 🚀</div>
     <canvas id="gameCanvas"></canvas>
     
     <div id="menu" class="overlay">
         <h1>Твой личный мини-квест ❤️</h1>
-        <p>Собери 3 подарка, чтобы открыть главный секрет.<br>Прыгай аккуратно!</p>
+        <p>Собери 3 подарка, уворачиваясь от кактусов.<br>Будет непросто, но ты справишься!</p>
         <button class="btn" onclick="showTapToStart()">Я готова!</button>
     </div>
 
     <div id="pre-quiz" class="overlay" style="display:none;">
         <h1>Упс! 💔</h1>
-        <p>Ответь на вопрос, чтобы продолжить путь!</p>
+        <p>Нужен правильный ответ, чтобы продолжить!</p>
         <button class="btn" onclick="openActualQuiz()">Ответить</button>
     </div>
 
@@ -64,7 +64,7 @@
     </div>
 
     <div id="finalScreen" class="overlay" style="display:none;">
-        <h1>Ты умничка! 🎉</h1>
+        <h1>Ты это сделала! 🎉</h1>
         <p style="font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left; font-size: 1rem;">
             Я знаю смысл слова "Ради", но<br> 
             в дополнении с тобой...<br>
@@ -72,18 +72,18 @@
             И слов не хватит...
         </p>
         <div class="coords">44.359825, 38.528602</div> 
-        <p style="font-size: 0.9rem; font-weight: bold;">Скопируй координаты и вставь в Яндекс Карты.</p>
+        <p style="font-size: 0.9rem; font-weight: bold;">Скопируй координаты и вставь в Яндекс Картах.</p>
     </div>
 </div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 4.5, collectedGifts = new Set();
+let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 5.5, collectedGifts = new Set();
 let quizStep = 0, objects = [];
 const images = {};
 
-const player = { x: 50, y: 0, w: 45, h: 45, dy: 0, jumpForce: 12, gravity: 0.6, ground: 0, isGrounded: false };
+const player = { x: 50, y: 0, w: 50, h: 50, dy: 0, jumpForce: 13, gravity: 0.7, ground: 0, isGrounded: false };
 
 const allQuizzes = [
     {
@@ -103,8 +103,8 @@ Object.entries(assets).forEach(([name, src]) => { images[name] = new Image(); im
 
 function resize() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 0.6;
-    player.ground = canvas.height - 60;
+    canvas.height = window.innerHeight * 0.65;
+    player.ground = canvas.height - 70;
     player.y = player.ground;
 }
 window.addEventListener('resize', resize);
@@ -113,27 +113,27 @@ resize();
 function drawCactus(x, y, w, h) {
     ctx.fillStyle = "#535353";
     ctx.fillRect(x + w*0.3, y, w*0.4, h);
-    ctx.fillRect(x, y + h*0.3, w*0.3, h*0.1);
-    ctx.fillRect(x + w*0.7, y + h*0.4, w*0.3, h*0.1);
+    ctx.fillRect(x, y + h*0.2, w*0.3, h*0.15);
+    ctx.fillRect(x + w*0.7, y + h*0.3, w*0.3, h*0.15);
 }
 
 function spawn() {
     if (!gameActive) return;
     const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
-    const isGift = giftPool.length > 0 && Math.random() > 0.7; // Подарки стали чаще
+    const isGift = giftPool.length > 0 && Math.random() > 0.8;
     const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
 
     objects.push({
         x: canvas.width,
-        y: isGift ? player.ground - 70 : player.ground + 15,
-        w: isGift ? 40 : 30,
-        h: isGift ? 40 : 45,
+        y: isGift ? player.ground - 85 : player.ground + 5,
+        w: isGift ? 45 : 35,
+        h: isGift ? 45 : 55,
         type: isGift ? 'gift' : 'obstacle',
         name: type
     });
     
-    // Большой интервал между кактусами
-    let nextSpawn = 1800 + Math.random() * 2000;
+    // Сбалансированный спавн
+    let nextSpawn = 1000 + Math.random() * 1200;
     setTimeout(spawn, nextSpawn);
 }
 
@@ -169,9 +169,9 @@ function update() {
                 }
             }
 
-            // Сверх-лояльный хитбокс
-            if (player.x < obj.x + obj.w - 15 && player.x + player.w > obj.x + 15 &&
-                player.y < obj.y + obj.h - 15 && player.y + player.h > obj.y + 15) {
+            // Честный хитбокс
+            if (player.x < obj.x + obj.w - 8 && player.x + player.w > obj.x + 8 &&
+                player.y < obj.y + obj.h - 8 && player.y + player.h > obj.y + 8) {
                 if (obj.type === 'obstacle') {
                     handleHit();
                 } else {
@@ -184,6 +184,7 @@ function update() {
         });
         objects = objects.filter(o => o.x > -100);
         score++; 
+        gameSpeed += 0.0005; // Едва заметное ускорение для азарта
         document.getElementById('scoreVal').innerText = Math.floor(score/10);
     }
     requestAnimationFrame(update);
@@ -211,7 +212,7 @@ function openActualQuiz() {
                 qS.style.display = 'none'; 
                 showTapToStart();
             } else { 
-                alert("Почти! Давай попробуем заново ❤️"); 
+                alert("Упс! Попробуем еще раз ❤️"); 
                 location.reload(); 
             }
         };
@@ -249,12 +250,12 @@ function jump() {
 }
 
 window.addEventListener('touchstart', (e) => { 
+    if (e.target.tagName === 'BUTTON') return;
     e.preventDefault();
     if (waitingForStart) startGame();
     else if (gameActive) jump();
 }, {passive: false});
 
-// Для теста на компе
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         if (waitingForStart) startGame();
