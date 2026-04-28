@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Твой секретный квест ❤️</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #ffffff; touch-action: none; }
-        #game-container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
-        canvas { display: block; width: 100%; touch-action: none; }
-        #ui { padding: 15px; font-size: 18px; color: #333; font-weight: bold; background: #fff; border-bottom: 1px solid #eee; }
+        body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; background: #ffffff; touch-action: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; background: #ffffff; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; font-size: 18px; color: #333; font-weight: bold; }
         
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -19,18 +19,18 @@
 
         .btn {
             padding: 15px 35px; font-size: 18px; border: none; border-radius: 50px;
-            background: #ff4d6d; color: white; font-weight: bold; margin-top: 15px;
+            background: #ff4d6d; color: white; cursor: pointer; margin: 10px; 
+            box-shadow: 0 4px 15px rgba(255, 77, 109, 0.3); font-weight: bold;
         }
         
-        .option-btn { background: #444; color: white; border: none; padding: 12px; margin: 5px; border-radius: 12px; min-width: 140px; font-weight: bold; }
-        .coords { font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 10px; color: #ff4d6d; font-size: 1.4rem; font-weight: bold; margin: 10px 0; }
-        
+        .option-btn { background: #444; min-width: 140px; font-size: 16px; color: white; border: none; padding: 12px; margin: 5px; border-radius: 12px; cursor: pointer; font-weight: bold; }
         #tap-to-start {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 20px; color: #ff4d6d; font-weight: bold; z-index: 50;
-            background: rgba(255,255,255,0.9); padding: 15px; border-radius: 15px;
-            display: none; text-align: center; border: 2px solid #ff4d6d;
+            font-size: 22px; color: #ff4d6d; font-weight: bold; z-index: 50;
+            background: rgba(255,255,255,0.9); padding: 20px; border-radius: 20px;
+            display: none; text-align: center; border: 2px solid #ff4d6d; pointer-events: none;
         }
+        .coords { font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 10px; color: #ff4d6d; font-size: 1.4rem; font-weight: bold; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
     
     <div id="menu" class="overlay">
         <h1>Твой квест ❤️</h1>
-        <p>Собери 3 подарка для секрета.<br>Прыгай, нажимая на экран!</p>
+        <p>Собери 3 подарка для секрета.<br>Прыгай через кактусы!</p>
         <button class="btn" onclick="showTapToStart()">Я готова!</button>
     </div>
 
@@ -59,7 +59,7 @@
 
     <div id="finalScreen" class="overlay" style="display:none;">
         <h1>Победа! 🎉</h1>
-        <p style="font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left;">
+        <p style="font-style: italic; color: #555; background: #fff5f7; padding: 15px; border-left: 5px solid #ff4d6d; text-align: left; font-size: 1rem;">
             Я знаю смысл слова "Ради", но<br> 
             в дополнении с тобой...<br>
             Ради тебя. Ради одной.<br>
@@ -73,11 +73,10 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let gameActive = false, waitingForStart = false;
-let score = 0, gameSpeed = 5, collectedGifts = new Set();
-let objects = [], nextSpawnTime = 0, quizStep = 0;
+let gameActive = false, waitingForStart = false, score = 0, gameSpeed = 5.0;
+let collectedGifts = new Set(), objects = [], quizStep = 0, lastSpawnTime = 0;
 
-const player = { x: 50, y: 0, w: 50, h: 50, dy: 0, jumpForce: 12, gravity: 0.6, ground: 0, isGrounded: false };
+const player = { x: 50, y: 0, w: 50, h: 50, dy: 0, jumpForce: 13, gravity: 0.7, ground: 0, isGrounded: false };
 
 const images = {};
 const assets = { 'her': 'her.jpg', 'apple': 'apple.jpg', 'beer': 'beer.jpg', 'kinder': 'kinder.jpg' };
@@ -91,46 +90,53 @@ const allQuizzes = [
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight * 0.7;
-    player.ground = canvas.height - 60;
+    player.ground = canvas.height - 70;
     player.y = player.ground;
 }
 window.addEventListener('resize', resize);
 resize();
 
-function spawnObject() {
-    const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
-    const isGift = giftPool.length > 0 && Math.random() > 0.6;
-    const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
-
-    objects.push({
-        x: canvas.width,
-        y: isGift ? player.ground - 80 : player.ground + 5,
-        w: isGift ? 45 : 35,
-        h: isGift ? 45 : 50,
-        type: isGift ? 'gift' : 'obstacle',
-        name: type
-    });
+function drawCactus(x, y, w, h) {
+    ctx.fillStyle = "#535353";
+    ctx.fillRect(x + w*0.3, y, w*0.4, h);
+    ctx.fillRect(x, y + h*0.2, w*0.3, h*0.15);
+    ctx.fillRect(x + w*0.7, y + h*0.3, w*0.3, h*0.15);
 }
 
 function update(time = 0) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Линия земли
-    ctx.strokeStyle = "#535353"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, player.ground + player.h); ctx.lineTo(canvas.width, player.ground + player.h); ctx.stroke();
+    // Отрисовка земли
+    ctx.beginPath(); ctx.moveTo(0, player.ground + player.h); ctx.lineTo(canvas.width, player.ground + player.h);
+    ctx.strokeStyle = "#535353"; ctx.lineWidth = 2; ctx.stroke();
 
     if (gameActive || waitingForStart) {
         player.dy += player.gravity; player.y += player.dy;
         if (player.y > player.ground) { player.y = player.ground; player.dy = 0; player.isGrounded = true; }
         
-        if (images['her'].complete) ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
-        else { ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h); }
+        if (images['her'].complete) {
+            ctx.drawImage(images['her'], player.x, player.y, player.w, player.h);
+        } else {
+            ctx.fillStyle = "#ff4d6d"; ctx.fillRect(player.x, player.y, player.w, player.h);
+        }
     }
 
     if (gameActive) {
-        if (time > nextSpawnTime) {
-            spawnObject();
-            nextSpawnTime = time + (1200 + Math.random() * 1500);
+        // Спавн объектов через время (time)
+        if (time - lastSpawnTime > (1500 + Math.random() * 1000)) {
+            const giftPool = ['apple', 'beer', 'kinder'].filter(g => !collectedGifts.has(g));
+            const isGift = giftPool.length > 0 && Math.random() > 0.65;
+            const type = isGift ? giftPool[Math.floor(Math.random() * giftPool.length)] : 'cactus';
+            
+            objects.push({
+                x: canvas.width,
+                y: isGift ? player.ground - 80 : player.ground + 5,
+                w: isGift ? 45 : 35,
+                h: isGift ? 45 : 55,
+                type: isGift ? 'gift' : 'obstacle',
+                name: type
+            });
+            lastSpawnTime = time;
         }
 
         for (let i = objects.length - 1; i >= 0; i--) {
@@ -138,24 +144,26 @@ function update(time = 0) {
             obj.x -= gameSpeed;
 
             if (obj.type === 'obstacle') {
-                ctx.fillStyle = "#535353"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                drawCactus(obj.x, obj.y, obj.w, obj.h);
             } else {
                 if (images[obj.name]?.complete) ctx.drawImage(images[obj.name], obj.x, obj.y, obj.w, obj.h);
                 else { ctx.fillStyle = "gold"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h); }
             }
 
-            // Коллизия
-            if (player.x < obj.x + obj.w - 10 && player.x + player.w > obj.x + 10 &&
-                player.y < obj.y + obj.h - 10 && player.y + player.h > obj.y + 10) {
-                if (obj.type === 'obstacle') { gameActive = false; document.getElementById('pre-quiz').style.display = 'flex'; }
-                else {
+            // Коллизия (с небольшим запасом для игрока)
+            if (player.x < obj.x + obj.w - 12 && player.x + player.w > obj.x + 12 &&
+                player.y < obj.y + obj.h - 12 && player.y + player.h > obj.y + 12) {
+                if (obj.type === 'obstacle') {
+                    gameActive = false;
+                    document.getElementById('pre-quiz').style.display = 'flex';
+                } else {
                     collectedGifts.add(obj.name);
                     document.getElementById('giftsCount').innerText = collectedGifts.size;
                     objects.splice(i, 1);
                     if (collectedGifts.size === 3) win();
                 }
             }
-            if (obj.x < -50) objects.splice(i, 1);
+            if (obj.x < -100) objects.splice(i, 1);
         }
         gameSpeed += 0.0003;
     }
@@ -169,10 +177,17 @@ function showTapToStart() {
     objects = [];
 }
 
-function startGame() {
-    document.getElementById('tap-to-start').style.display = 'none';
-    waitingForStart = false; gameActive = true;
-    player.dy = -player.jumpForce; player.isGrounded = false;
+function jump() {
+    if (waitingForStart) {
+        document.getElementById('tap-to-start').style.display = 'none';
+        waitingForStart = false;
+        gameActive = true;
+        lastSpawnTime = performance.now();
+    }
+    if (player.isGrounded && gameActive) {
+        player.dy = -player.jumpForce;
+        player.isGrounded = false;
+    }
 }
 
 function openActualQuiz() {
@@ -194,15 +209,17 @@ function openActualQuiz() {
 
 function win() { gameActive = false; document.getElementById('finalScreen').style.display = 'flex'; }
 
+// Единый обработчик для телефона и ПК
 function handleAction(e) {
-    if (e.type === 'touchstart') e.preventDefault();
-    if (waitingForStart) startGame();
-    else if (gameActive && player.isGrounded) { player.dy = -player.jumpForce; player.isGrounded = false; }
+    if (e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    jump();
 }
 
 window.addEventListener('touchstart', handleAction, {passive: false});
-window.addEventListener('keydown', (e) => { if(e.code === 'Space') handleAction(e); });
+window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
 
+// Запуск цикла
 update();
 </script>
 </body>
